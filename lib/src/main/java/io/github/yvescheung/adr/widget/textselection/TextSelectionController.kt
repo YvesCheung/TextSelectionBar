@@ -30,7 +30,7 @@ import kotlin.math.roundToInt
  * 2022/6/22
  */
 @Suppress("MemberVisibilityCanBePrivate")
-open class TextSelectionController(
+open class TextSelectionController @JvmOverloads constructor(
     /**
      * 光标所在[EditText]
      */
@@ -50,12 +50,9 @@ open class TextSelectionController(
     /**
      * 在Android9上是否打开[Magnifier]放大光标位置
      */
-    var enableMagnifier: Boolean = true,
-    /**
-     * 多长时间算长按
-     */
-    var longPressDuration: Long = 500L
+    var enableMagnifier: Boolean = true
 ) {
+
     enum class SelectType {
         /**
          * 移动光标
@@ -127,24 +124,45 @@ open class TextSelectionController(
     }
 
     private val max
-        get() = seekBar?.max ?: 100
+        get() = seekBar?.max ?: SEEK_BAR_MAX
 
     private val min
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) seekBar?.min ?: 0 else 0
 
-    private var progressOnPress = (max - min) / 2
-    private var currentProgress = progressOnPress
+    /**
+     * 多长时间算长按
+     */
+    var longPressDuration: Long = 500L
 
-    private var selectionStartOnPress = 0
-    private var selectionEndOnPress = 0
+    /**
+     * 当进度条移动到端点后，每隔多长时间移动一次光标
+     */
+    var moveCursorDuration: Long = 100L
+
+    /**
+     * 手势按下去时，进度条的初始进度
+     */
+    private var progressOnPress = (max - min) / 2
+
+    /**
+     * 当前进度条的进度
+     * @see changeProgress
+     */
+    private var currentProgress = progressOnPress
 
     /**
      * 当[SelectType.Selection]时，正在移动哪个光标
      */
     private var selectionDirection = SD_UNDEFINE
 
+    /**
+     * [attachTo]的进度条
+     */
     private var seekBar: SeekBar? = null
 
+    /**
+     * 放大镜效果
+     */
     private var magnifier: MagnifierHelper? = null
 
     init {
@@ -156,13 +174,20 @@ open class TextSelectionController(
     }
 
     private val handler = Handler(Looper.getMainLooper()) {
-        if (it.what == TOUCH_LONG) {
-            if (controlMode == Mode.ShortPressMoveAndLongPressSelection) {
-                type = SelectType.Selection
-                switchToLongPressMode()
-            } else if (controlMode == Mode.ShortPressSelectionAndLongPressMove) {
-                type = SelectType.Move
-                switchToLongPressMode()
+        when (it.what) {
+            MSG_TOUCH_LONG -> {
+                if (controlMode == Mode.ShortPressMoveAndLongPressSelection) {
+                    type = SelectType.Selection
+                    switchToLongPressMode()
+                } else if (controlMode == Mode.ShortPressSelectionAndLongPressMove) {
+                    type = SelectType.Move
+                    switchToLongPressMode()
+                }
+            }
+            MSG_AUTO_CHANGE_PROGRESS -> {
+                if (currentProgress == min || currentProgress == max) {
+                    changeProgress(currentProgress, type)
+                }
             }
         }
         true
@@ -193,9 +218,7 @@ open class TextSelectionController(
                 ACTION_DOWN -> {
                     downX = event.x
                     downY = event.y
-                    handler.sendEmptyMessageDelayed(TOUCH_LONG, longPressDuration)
-                    selectionStartOnPress = target.selectionStart
-                    selectionEndOnPress = target.selectionEnd
+                    handler.sendEmptyMessageDelayed(MSG_TOUCH_LONG, longPressDuration)
 
                     seekBar?.let {
                         progressOnPress = it.progress
@@ -204,11 +227,12 @@ open class TextSelectionController(
                 }
                 ACTION_MOVE -> {
                     if (distance(downX, downY, event.x, event.y) > touchSlop * touchSlop) {
-                        handler.removeMessages(TOUCH_LONG)
+                        handler.removeMessages(MSG_TOUCH_LONG)
                     }
                 }
                 ACTION_UP, ACTION_CANCEL -> {
-                    handler.removeMessages(TOUCH_LONG)
+                    handler.removeMessages(MSG_TOUCH_LONG)
+                    handler.removeMessages(MSG_AUTO_CHANGE_PROGRESS)
                 }
             }
 
@@ -273,6 +297,12 @@ open class TextSelectionController(
                 magnifier = MagnifierHelper(target)
             }
             magnifier?.show(target.selectionStart)
+        }
+
+        if (newProgress == max || newProgress == min) {
+            handler.sendEmptyMessageDelayed(MSG_AUTO_CHANGE_PROGRESS, moveCursorDuration)
+        } else {
+            handler.removeMessages(MSG_AUTO_CHANGE_PROGRESS)
         }
     }
 
@@ -400,7 +430,18 @@ open class TextSelectionController(
     }
 
     companion object {
-        private const val TOUCH_LONG = 1
+
+        const val SEEK_BAR_MAX = 100 //值越大，进度条的移动越敏感，每动一下手指光标移动的距离就越多
+
+        /**
+         * 判断是否长按
+         */
+        private const val MSG_TOUCH_LONG = 1
+
+        /**
+         * 当进度条移动到顶端时，继续移动光标
+         */
+        private const val MSG_AUTO_CHANGE_PROGRESS = 2
 
         private const val SD_UNDEFINE = 0
         private const val SD_START = 1
