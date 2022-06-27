@@ -3,10 +3,10 @@ package io.github.yvescheung.adr.widget.textselection
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Service
+import android.content.res.Resources
 import android.os.*
-import android.text.Editable
 import android.text.Selection
-import android.text.TextWatcher
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.MotionEvent.*
 import android.view.View
@@ -18,9 +18,11 @@ import android.widget.Magnifier
 import android.widget.SeekBar
 import androidx.annotation.RequiresApi
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.*
+import androidx.core.widget.doAfterTextChanged
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController.SelectType
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 
 /**
@@ -37,6 +39,10 @@ open class TextSelectionController(
      * 长短按触发的行为
      */
     var controlMode: Mode = Mode.ShortPressMoveAndLongPressSelection,
+    /**
+     * 当[target]满足一定条件时，该控件才可用
+     */
+    var enableWhen: EnableWhen = EnableWhen.None,
     /**
      * 通过[SelectType.Selection]选定范围后，是否拉起"剪切/复制/全选"的菜单
      */
@@ -64,6 +70,9 @@ open class TextSelectionController(
         Selection;
     }
 
+    /**
+     * 手势触摸后，光标的行为
+     */
     enum class Mode {
         /**
          * 默认移动光标，长按控件后改为选择范围
@@ -86,6 +95,25 @@ open class TextSelectionController(
         JustSelection
     }
 
+    /**
+     * 是否当[target]满足一定条件时，控件才可用
+     */
+    enum class EnableWhen {
+        /**
+         * [EditText.getText]不为空
+         */
+        NotEmpty,
+
+        /**
+         * 该库不处理
+         */
+        None;
+    }
+
+    /**
+     * 当前移动[seekBar]如何调整[target]的光标
+     * @see SelectType
+     */
     private var type = resetType()
 
     private fun resetType(): SelectType {
@@ -110,22 +138,21 @@ open class TextSelectionController(
     private var selectionStartOnPress = 0
     private var selectionEndOnPress = 0
 
+    /**
+     * 当[SelectType.Selection]时，正在移动哪个光标
+     */
+    private var selectionDirection = SD_UNDEFINE
+
     private var seekBar: SeekBar? = null
 
     private var magnifier: MagnifierHelper? = null
 
     init {
-        target.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+        if (enableWhen != EnableWhen.None) {
+            target.doAfterTextChanged { text ->
+                checkSeekBarEnable(text)
             }
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-            }
-
-            override fun afterTextChanged(s: Editable?) {
-                seekBar?.isEnabled = s != null && s.isNotEmpty()
-            }
-        })
+        }
     }
 
     private val handler = Handler(Looper.getMainLooper()) {
@@ -182,28 +209,33 @@ open class TextSelectionController(
                 }
                 ACTION_UP, ACTION_CANCEL -> {
                     handler.removeMessages(TOUCH_LONG)
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        magnifier?.dismiss()
-                    }
-
-                    if (type == SelectType.Selection && startActionModeAfterSelection) {
-                        //accessibility can start ActionMode
-                        //曲线救国拉起"剪切/复制/全选"的菜单
-                        val start = target.selectionStart
-                        val end = target.selectionEnd
-                        Selection.removeSelection(target.text)
-                        target.performAccessibilityAction(ACTION_SET_SELECTION,
-                            Bundle().apply {
-                                putInt(ACTION_ARGUMENT_SELECTION_START_INT, start)
-                                putInt(ACTION_ARGUMENT_SELECTION_END_INT, end)
-                            }
-                        )
-                    }
-                    type = resetType()
                 }
             }
+
             v?.onTouchEvent(event)
+
+            if (event.actionMasked == ACTION_UP ||
+                event.actionMasked == ACTION_CANCEL
+            ) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    magnifier?.dismiss()
+                }
+
+                if (type == SelectType.Selection && startActionModeAfterSelection) {
+                    //accessibility can start ActionMode
+                    //曲线救国拉起"剪切/复制/全选"的菜单
+                    val start = target.selectionStart
+                    val end = target.selectionEnd
+                    Selection.removeSelection(target.text)
+                    target.performAccessibilityAction(ACTION_SET_SELECTION,
+                        Bundle().apply {
+                            putInt(ACTION_ARGUMENT_SELECTION_START_INT, start)
+                            putInt(ACTION_ARGUMENT_SELECTION_END_INT, end)
+                        }
+                    )
+                }
+                onTouchReset()
+            }
             return true
         }
     }
@@ -216,17 +248,23 @@ open class TextSelectionController(
         if (type == SelectType.Move) {
             target.setSelection((target.selectionStart + move).limit(0, target.text.length))
         } else { //Selection mode
-            if (newProgress < progressOnPress) {
-                target.setSelection(
-                    (target.selectionStart + move).limit(0, target.selectionEnd),
-                    target.selectionEnd
-                )
-            } else {
-                target.setSelection(
-                    target.selectionStart,
-                    (target.selectionEnd + move).limit(target.selectionStart, target.text.length)
-                )
+            if (selectionDirection == SD_UNDEFINE) {
+                selectionDirection = if (newProgress < progressOnPress) SD_START else SD_END
+            } else if (target.selectionStart + move > target.selectionEnd) {
+                selectionDirection = SD_END
+            } else if (target.selectionEnd + move < target.selectionStart) {
+                selectionDirection = SD_START
             }
+            val start =
+                if (selectionDirection == SD_END) target.selectionStart
+                else target.selectionStart + move
+            val end =
+                if (selectionDirection == SD_START) target.selectionEnd
+                else target.selectionEnd + move
+            target.setSelection(
+                start.limit(0, target.text.length),
+                end.limit(0, target.text.length)
+            )
         }
         currentProgress = newProgress
 
@@ -243,10 +281,15 @@ open class TextSelectionController(
         if (seekBar != null) {
             seekBar.setOnTouchListener(onTouchListener)
             seekBar.setOnSeekBarChangeListener(onSeekbarChangeListener)
-
-            seekBar.isEnabled = target.text.isNotEmpty()
         }
         this.seekBar = seekBar
+        checkSeekBarEnable(target.text)
+    }
+
+    private fun checkSeekBarEnable(text: CharSequence?) {
+        if (enableWhen == EnableWhen.NotEmpty) {
+            seekBar?.isEnabled = !text.isNullOrEmpty()
+        }
     }
 
     protected open fun switchToLongPressMode() {
@@ -258,15 +301,16 @@ open class TextSelectionController(
         }
     }
 
+    protected open fun onTouchReset() {
+        selectionDirection = SD_UNDEFINE
+        type = resetType()
+        seekBar?.progress = progressOnPress
+    }
+
     @RequiresApi(Build.VERSION_CODES.P)
     private class MagnifierHelper(val view: EditText) {
 
-        private val magnifier: Magnifier =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Magnifier.Builder(view).build()
-            } else {
-                Magnifier(view)
-            }
+        private var magnifier: Magnifier? = null
 
         private var isShowing = false
 
@@ -286,25 +330,41 @@ open class TextSelectionController(
                             + (endX - startX) * animation.animatedFraction)
                     currentY = (startY
                             + (endY - startY) * animation.animatedFraction)
-                    magnifier.show(currentX, currentY)
+                    magnifier?.show(currentX, currentY)
                 }
             }
 
         private val onTextViewDraw = ViewTreeObserver.OnDrawListener {
             view.post {
                 if (isShowing) {
-                    magnifier.update()
+                    magnifier?.update()
                 }
             }
         }
 
         fun show(cursor: Int) {
             val lineNumber = view.layout.getLineForOffset(cursor)
-
             val x = (view.layout.getPrimaryHorizontal(cursor) - view.scrollX) * view.scaleX
             val y = ((view.layout.getLineTop(lineNumber)
                     + view.layout.getLineTop(lineNumber + 1)) / 2.0f
                     + view.totalPaddingTop - view.scrollY) * view.scaleY
+
+            if (magnifier == null) {
+                val zoom = 1.5f
+                val aspectRatio = 4f
+                val minHeight = 20f.dp
+                magnifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val sourceHeight =
+                        view.layout.getLineTop(lineNumber + 1) - view.layout.getLineTop(lineNumber)
+                    val height = (sourceHeight * zoom + 8f.dp /*padding*/).toInt()
+                    val width = (aspectRatio * max(sourceHeight, minHeight)).toInt()
+                    Magnifier.Builder(view).setSize(width, height)
+                        .setCornerRadius(height * 0.5f)
+                        .setInitialZoom(zoom).build()
+                } else {
+                    Magnifier(view)
+                }
+            }
 
             if (isShowing && endX != x && endY != y) {
                 if (animator.isRunning) {
@@ -318,7 +378,7 @@ open class TextSelectionController(
                 animator.start()
             } else {
                 if (!animator.isRunning) {
-                    magnifier.show(x, y)
+                    magnifier?.show(x, y)
                 }
             }
             endX = x
@@ -331,14 +391,20 @@ open class TextSelectionController(
         }
 
         fun dismiss() {
+            animator.cancel()
             view.viewTreeObserver.removeOnDrawListener(onTextViewDraw)
-            magnifier.dismiss()
+            magnifier?.dismiss()
+            magnifier = null
             isShowing = false
         }
     }
 
     companion object {
         private const val TOUCH_LONG = 1
+
+        private const val SD_UNDEFINE = 0
+        private const val SD_START = 1
+        private const val SD_END = 2
 
         private fun distance(x1: Float, y1: Float, x2: Float, y2: Float): Float {
             return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
@@ -347,5 +413,12 @@ open class TextSelectionController(
         private fun Int.limit(minValue: Int, maxValue: Int): Int {
             return max(minValue, min(this, maxValue))
         }
+
+        private val Float.dp: Int
+            get() = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                this,
+                Resources.getSystem().displayMetrics
+            ).roundToInt()
     }
 }
