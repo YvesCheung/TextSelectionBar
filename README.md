@@ -1,6 +1,6 @@
 # TextSelectionBar
 
-:mag: 长文本输入栏神器！
+:mag: Android长文本输入栏神器！
 
 :straight_ruler: 通过拖动进度条移动光标或选中文本。
 
