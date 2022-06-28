@@ -165,6 +165,9 @@ open class TextSelectionController @JvmOverloads constructor(
      */
     private var magnifier: MagnifierHelper? = null
 
+
+    private val listeners = mutableListOf<SeekBar.OnSeekBarChangeListener>()
+
     init {
         if (enableWhen != EnableWhen.None) {
             target.doAfterTextChanged { text ->
@@ -195,15 +198,25 @@ open class TextSelectionController @JvmOverloads constructor(
 
     private val onSeekbarChangeListener = object : SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-            if (fromUser) changeProgress(progress, type)
+            if (fromUser) {
+                changeProgress(progress, type)
+            } else {
+                listeners.forEach {
+                    it.onProgressChanged(seekBar, progress, fromUser)
+                }
+            }
         }
 
         override fun onStartTrackingTouch(seekBar: SeekBar?) {
-            //Do nothing
+            listeners.forEach {
+                it.onStartTrackingTouch(seekBar)
+            }
         }
 
         override fun onStopTrackingTouch(seekBar: SeekBar?) {
-            //Do nothing
+            listeners.forEach {
+                it.onStopTrackingTouch(seekBar)
+            }
         }
     }
 
@@ -304,6 +317,24 @@ open class TextSelectionController @JvmOverloads constructor(
         } else {
             handler.removeMessages(MSG_AUTO_CHANGE_PROGRESS)
         }
+
+        listeners.forEach {
+            it.onProgressChanged(seekBar, newProgress, true)
+        }
+    }
+
+    /**
+     * @see removeListener
+     */
+    fun addListener(listener: SeekBar.OnSeekBarChangeListener) {
+        listeners.add(listener)
+    }
+
+    /**
+     * @see addListener
+     */
+    fun removeListener(listener: SeekBar.OnSeekBarChangeListener) {
+        listeners.remove(listener)
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -313,6 +344,7 @@ open class TextSelectionController @JvmOverloads constructor(
             seekBar.setOnSeekBarChangeListener(onSeekbarChangeListener)
         }
         this.seekBar = seekBar
+        this.seekBar?.progress = (max - min) / 2
         checkSeekBarEnable(target.text)
     }
 

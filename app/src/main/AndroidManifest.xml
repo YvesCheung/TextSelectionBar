@@ -14,7 +14,7 @@
         android:theme="@style/Theme.TextSelectionBar"
         tools:targetApi="31">
         <activity
-            android:name="io.github.yvescheung.adr.widget.textselection.MainActivity"
+            android:name="io.github.yvescheung.adr.widget.textselection.demo.MainActivity"
             android:exported="true"
             android:windowSoftInputMode="stateUnspecified|adjustResize">
             <intent-filter>

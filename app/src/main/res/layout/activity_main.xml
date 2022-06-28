@@ -2,9 +2,10 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="io.github.yvescheung.adr.widget.textselection.MainActivity">
+    tools:context="io.github.yvescheung.adr.widget.textselection.demo.MainActivity">
 
     <EditText
         android:id="@+id/edit_text"
@@ -12,16 +13,89 @@
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         android:hint="Type something: "
+        android:inputType="text"
+        android:maxLines="1"
         android:minHeight="48dp"
+        android:text="abcdefghijklmnopqrstuvwyz"
         android:textSize="18sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         tools:ignore="HardcodedText" />
 
-    <io.github.yvescheung.adr.widget.textselection.TextSelectionBar
-        android:id="@+id/selection_bar"
-        android:layout_width="match_parent"
+    <CheckBox
+        android:id="@+id/cb_action_mode"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="20dp"
+        android:checked="true"
+        android:text="Enable TextActionMode｜选中文本后的剪切/复制菜单"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/edit_text"
+        tools:ignore="HardcodedText" />
+
+    <CheckBox
+        android:id="@+id/cb_magnifier"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:text="Enable magnifier|启用放大镜"
+        app:layout_constraintStart_toStartOf="@+id/cb_action_mode"
+        app:layout_constraintTop_toBottomOf="@+id/cb_action_mode"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:id="@+id/rg_mode_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Cursor control mode："
+        app:layout_constraintStart_toStartOf="@+id/cb_magnifier"
+        app:layout_constraintTop_toBottomOf="@+id/cb_magnifier"
+        tools:ignore="HardcodedText" />
+
+    <RadioGroup
+        android:id="@+id/rg_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@+id/rg_mode_title"
+        app:layout_constraintTop_toBottomOf="@+id/rg_mode_title">
+
+        <RadioButton
+            android:id="@+id/rb_short_move"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="short press: move, long press: selection"
+            tools:ignore="HardcodedText" />
+
+        <RadioButton
+            android:id="@+id/rb_short_selection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="short press: selection, long press: move"
+            tools:ignore="HardcodedText" />
+
+        <RadioButton
+            android:id="@+id/rb_only_move"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Only move"
+            tools:ignore="HardcodedText" />
+
+        <RadioButton
+            android:id="@+id/rb_only_selection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Only selection"
+            tools:ignore="HardcodedText" />
+    </RadioGroup>
+
+    <include
+        android:id="@+id/quick_input_bar"
+        layout="@layout/layout_quick_input_bar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
         app:layout_constraintBottom_toBottomOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
