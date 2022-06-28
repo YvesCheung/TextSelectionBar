@@ -38,7 +38,7 @@ open class TextSelectionController @JvmOverloads constructor(
     /**
      * 长短按触发的行为
      */
-    var controlMode: Mode = Mode.ShortPressMoveAndLongPressSelection,
+    mode: Mode = Mode.ShortPressMoveAndLongPressSelection,
     /**
      * 当[target]满足一定条件时，该控件才可用
      */
@@ -91,6 +91,15 @@ open class TextSelectionController @JvmOverloads constructor(
          */
         JustSelection
     }
+
+    /**
+     * 长短按触发的行为
+     */
+    var controlMode: Mode = mode
+        set(value) {
+            field = value
+            type = resetType()
+        }
 
     /**
      * 是否当[target]满足一定条件时，控件才可用
