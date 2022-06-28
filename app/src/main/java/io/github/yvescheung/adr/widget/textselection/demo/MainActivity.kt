@@ -6,6 +6,7 @@ import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
@@ -85,6 +86,7 @@ class MainActivity : AppCompatActivity() {
     private fun startInputBarTransition(inputBar: LayoutQuickInputBarBinding, expand: Boolean) {
         val transition = ChangeBounds()
         transition.duration = 200L
+        transition.interpolator = DecelerateInterpolator()
         inputBar.quickInputSeek.updateLayoutParams { width = if (expand) MATCH_PARENT else 0 }
         inputBar.quickInputCn.updateLayoutParams { width = inputBar.quickInputCn.measuredWidth }
         inputBar.quickInputM.updateLayoutParams { width = inputBar.quickInputM.measuredWidth }
