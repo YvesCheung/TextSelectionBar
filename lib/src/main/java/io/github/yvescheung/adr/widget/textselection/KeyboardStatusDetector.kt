@@ -11,6 +11,10 @@ import androidx.annotation.RequiresApi
 import androidx.core.view.WindowInsetsCompat
 import java.util.concurrent.CopyOnWriteArrayList
 
+/**
+ * @author YvesCheung
+ * 2022/6/29
+ */
 @Suppress("MemberVisibilityCanBePrivate")
 interface KeyboardStatusDetector {
 

@@ -22,6 +22,10 @@ import io.github.yvescheung.adr.widget.textselection.TextSelectionController.Mod
 import io.github.yvescheung.adr.widget.textselection.demo.databinding.ActivityMainBinding
 import io.github.yvescheung.adr.widget.textselection.demo.databinding.LayoutQuickInputBarBinding
 
+/**
+ * @author YvesCheung
+ * 2022/6/22
+ */
 class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")
