@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
@@ -28,13 +29,23 @@ class MainActivity : AppCompatActivity() {
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.container.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
-            if (bottom - top < oldBottom - oldTop) { //keyboard show
-                binding.quickInputBar.root.visibility = VISIBLE
-            } else if (bottom - top > oldBottom - oldTop) {
-                binding.quickInputBar.root.visibility = GONE
+        //这里用adjustPan+layout高度判断，而不是adjustResize，因为接入方改resize可能会改出其他问题
+        val detector = KeyboardStatusDetector.register(this)
+        detector.addListener(object : KeyboardStatusDetector.OnChangeListener {
+
+            override fun onVisibleChange(visible: Boolean) {
+                binding.quickInputBar.root.visibility = if (visible) VISIBLE else GONE
             }
-        }
+
+            override fun onHeightChange(height: Int) {
+                val lp = binding.quickInputBar.root.layoutParams as ViewGroup.MarginLayoutParams
+                if (lp.bottomMargin != height) {
+                    lp.bottomMargin = height
+                    binding.quickInputBar.root.layoutParams = lp
+                }
+            }
+        })
+        binding.quickInputBar.root.visibility = if (detector.isVisible) VISIBLE else GONE
 
         binding.editText.requestFocus()
         binding.quickInputBar.quickInputM.onClickInputText("m.", binding.editText)
