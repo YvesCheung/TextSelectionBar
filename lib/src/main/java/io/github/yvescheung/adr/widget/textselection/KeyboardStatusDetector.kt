@@ -1,4 +1,4 @@
-package io.github.yvescheung.adr.widget.textselection.demo
+package io.github.yvescheung.adr.widget.textselection
 
 import android.app.Activity
 import android.graphics.Rect

@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.updateLayoutParams
 import androidx.transition.ChangeBounds
 import androidx.transition.TransitionManager
+import io.github.yvescheung.adr.widget.textselection.KeyboardStatusDetector
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController.EnableWhen
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController.Mode
