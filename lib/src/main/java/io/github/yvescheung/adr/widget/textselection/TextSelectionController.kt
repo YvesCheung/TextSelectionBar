@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.res.Resources
 import android.os.*
 import android.text.Selection
+import android.text.Spannable
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.MotionEvent.*
@@ -16,6 +17,7 @@ import android.view.animation.LinearInterpolator
 import android.widget.EditText
 import android.widget.Magnifier
 import android.widget.SeekBar
+import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.*
 import androidx.core.widget.doAfterTextChanged
@@ -34,7 +36,7 @@ open class TextSelectionController @JvmOverloads constructor(
     /**
      * 光标所在[EditText]
      */
-    val target: EditText,
+    val target: TextView,
     /**
      * 长短按触发的行为
      */
@@ -272,7 +274,7 @@ open class TextSelectionController @JvmOverloads constructor(
                     //曲线救国拉起"剪切/复制/全选"的菜单
                     val start = target.selectionStart
                     val end = target.selectionEnd
-                    Selection.removeSelection(target.text)
+                    target.removeSelection()
                     target.performAccessibilityAction(ACTION_SET_SELECTION,
                         Bundle().apply {
                             putInt(ACTION_ARGUMENT_SELECTION_START_INT, start)
@@ -332,6 +334,20 @@ open class TextSelectionController @JvmOverloads constructor(
         }
     }
 
+    private fun TextView.setSelection(start: Int, end: Int = start) {
+        val text = this.text
+        if (text is Spannable) {
+            Selection.setSelection(text, start, end)
+        }
+    }
+
+    private fun TextView.removeSelection() {
+        val text = this.text
+        if (text is Spannable) {
+            Selection.removeSelection(text)
+        }
+    }
+
     /**
      * @see removeListener
      */
@@ -379,7 +395,7 @@ open class TextSelectionController @JvmOverloads constructor(
     }
 
     @RequiresApi(Build.VERSION_CODES.P)
-    private class MagnifierHelper(val view: EditText) {
+    private class MagnifierHelper(val view: TextView) {
 
         private var magnifier: Magnifier? = null
 
