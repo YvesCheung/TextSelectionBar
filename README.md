@@ -10,18 +10,18 @@
 
 |短按拖动：移动光标|长按拖动：选中文本|
 |:---:|:---:|
-|![](https://raw.githubusercontent.com/YvesCheung/TextSelectionBar/master/art/shortPressMoveCursor.gif)|![](https://raw.githubusercontent.com/YvesCheung/TextSelectionBar/master/art/longPressSelection.gif)|
+|![](https://upload-images.jianshu.io/upload_images/6368225-683fc32590282593.gif?imageMogr2/auto-orient/strip)|![](https://upload-images.jianshu.io/upload_images/6368225-98255a5a517dc565.gif?imageMogr2/auto-orient/strip)|
 
 ## Feature
 
 1. 支持 **短按移动长按选中**，**短按选中长按移动**，**仅移动光标**，**仅选中文本** 四种模式。
 2. 可选开启**放大镜**。
     
-    <img src="https://raw.githubusercontent.com/YvesCheung/TextSelectionBar/master/art/option_magnifier.jpg" width="400"/>
+    <img src="https://upload-images.jianshu.io/upload_images/6368225-33079f7ecb13269e.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" width="400"/>
 
 3. 可选开启“剪切/复制/粘贴/全选”菜单。
     
-    <img src="https://raw.githubusercontent.com/YvesCheung/TextSelectionBar/master/art/option_text_action_mode.jpg" width="400"/>
+    <img src="https://upload-images.jianshu.io/upload_images/6368225-610b869f32ed4240.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" width="400"/>
     
 ## Usage
 
