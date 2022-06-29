@@ -3,7 +3,6 @@ package io.github.yvescheung.adr.widget.textselection
 import android.app.Activity
 import android.graphics.Rect
 import android.os.Build
-import android.util.Log
 import android.view.View
 import android.view.Window
 import android.view.WindowInsets
@@ -66,10 +65,6 @@ interface KeyboardStatusDetector {
                     ): WindowInsets {
                         val navigation = insets.getInsets(WindowInsets.Type.navigationBars())
                         val ime = insets.getInsets(WindowInsets.Type.ime())
-                        Log.i(
-                            "Yves", "onProgress ime = $ime navigation = $navigation" +
-                                    ", visible = ${insets.isVisible(WindowInsets.Type.ime())}"
-                        )
                         listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom) }
 
                         val newVisible = insets.isVisible(WindowInsets.Type.ime())
@@ -103,7 +98,6 @@ interface KeyboardStatusDetector {
                     listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom) }
                     isVisible = newVisible
                 }
-                Log.i("Yves", "ime = $ime navigation = $navigation")
             }
 
             isVisible = decorView.rootWindowInsets?.let {
