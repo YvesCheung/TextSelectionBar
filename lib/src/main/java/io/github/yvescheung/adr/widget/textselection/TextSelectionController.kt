@@ -23,6 +23,7 @@ import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.*
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController.SelectType
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -175,6 +176,11 @@ open class TextSelectionController @JvmOverloads constructor(
      */
     private var selectionImpl: OnSelectionActionCallback = DefaultSelectionActionCallback()
 
+    /**
+     * 状态回调
+     */
+    private val listeners = CopyOnWriteArrayList<OnStatusChangeListener>()
+
     init {
         if (enableWhen != EnableWhen.None) {
             target.addTextChangedListener(object : TextWatcher {
@@ -191,23 +197,25 @@ open class TextSelectionController @JvmOverloads constructor(
         }
     }
 
-    private val handler = Handler(Looper.getMainLooper()) {
-        when (it.what) {
+    private val handler = Handler(Looper.getMainLooper()) { msg ->
+        when (msg.what) {
             MSG_TOUCH_LONG -> {
                 if (controlMode == Mode.ShortPressMoveAndLongPressSelection) {
                     type = SelectType.Selection
                     switchToLongPressMode()
+                    listeners.forEach { it.onLongPress(type) }
                 } else if (controlMode == Mode.ShortPressSelectionAndLongPressMove) {
                     type = SelectType.Move
                     switchToLongPressMode()
+                    listeners.forEach { it.onLongPress(type) }
                 }
             }
             MSG_AUTO_CHANGE_PROGRESS -> {
                 val currentProgress = seekBar?.progress
                 if (currentProgress == min) {
-                    moveCursor(-1, type)
+                    moveCursor(-1, type, true)
                 } else if (currentProgress == max) {
-                    moveCursor(1, type)
+                    moveCursor(1, type, true)
                 }
             }
         }
@@ -232,6 +240,8 @@ open class TextSelectionController @JvmOverloads constructor(
                     downY = y
                     lastMoveX = downX
                     handler.sendEmptyMessageDelayed(MSG_TOUCH_LONG, longPressDuration)
+
+                    listeners.forEach { it.onTouchStart(v) }
                 }
                 ACTION_MOVE -> {
                     if (distance(downX, downY, x, y) > touchSlop * touchSlop) {
@@ -242,7 +252,7 @@ open class TextSelectionController @JvmOverloads constructor(
                         (v.width - v.paddingLeft - v.paddingRight).toFloat() / (max - min)
                     val move = ((x - lastMoveX) / distancePerMove).roundToInt()
                     if (move != 0) {
-                        moveCursor(move, type)
+                        moveCursor(move, type, true)
                         lastMoveX = x
                     }
                 }
@@ -268,6 +278,8 @@ open class TextSelectionController @JvmOverloads constructor(
                         )
                     }
                     onTouchReset()
+
+                    listeners.forEach { it.onTouchEnd(v) }
                 }
             }
             return true
@@ -275,6 +287,10 @@ open class TextSelectionController @JvmOverloads constructor(
     }
 
     open fun moveCursor(move: Int, type: SelectType) {
+        moveCursor(move, type, false)
+    }
+
+    protected open fun moveCursor(move: Int, type: SelectType, fromTouch: Boolean) {
         if (type == SelectType.Move) {
             selectionImpl.setSelection(
                 target = target,
@@ -313,6 +329,22 @@ open class TextSelectionController @JvmOverloads constructor(
         } else {
             handler.removeMessages(MSG_AUTO_CHANGE_PROGRESS)
         }
+
+        listeners.forEach { it.onMove(move, type, fromTouch) }
+    }
+
+    /**
+     * @see removeListener
+     */
+    fun addListener(listener: OnStatusChangeListener) {
+        listeners.add(listener)
+    }
+
+    /**
+     * @see addListener
+     */
+    fun removeListener(listener: OnStatusChangeListener) {
+        listeners.remove(listener)
     }
 
     /**
@@ -467,6 +499,32 @@ open class TextSelectionController @JvmOverloads constructor(
                 Selection.removeSelection(text)
             }
         }
+    }
+
+    interface OnStatusChangeListener {
+
+        /**
+         * 手势按下去时回调
+         */
+        fun onTouchStart(v: View) {}
+
+        /**
+         * 结束手势时回调
+         */
+        fun onTouchEnd(v: View) {}
+
+        /**
+         * 长按替换模式时回调，仅在[Mode.ShortPressMoveAndLongPressSelection]或者
+         * [Mode.ShortPressSelectionAndLongPressMove]下会回调。
+         */
+        fun onLongPress(type: SelectType) {}
+
+        /**
+         * 触发光标移动或选择时回调
+         * @param move 相对移动位置
+         * @param fromTouch 是否由手势滑动触发。直接调用[moveCursor]则为false。
+         */
+        fun onMove(move: Int, type: SelectType, fromTouch: Boolean) {}
     }
 
     companion object {

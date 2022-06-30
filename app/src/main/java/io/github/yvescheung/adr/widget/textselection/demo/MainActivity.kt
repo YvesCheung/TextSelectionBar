@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
-import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.updateLayoutParams
@@ -17,8 +16,7 @@ import androidx.transition.ChangeBounds
 import androidx.transition.TransitionManager
 import io.github.yvescheung.adr.widget.textselection.KeyboardStatusDetector
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController
-import io.github.yvescheung.adr.widget.textselection.TextSelectionController.EnableWhen
-import io.github.yvescheung.adr.widget.textselection.TextSelectionController.Mode
+import io.github.yvescheung.adr.widget.textselection.TextSelectionController.*
 import io.github.yvescheung.adr.widget.textselection.demo.databinding.ActivityMainBinding
 import io.github.yvescheung.adr.widget.textselection.demo.databinding.LayoutQuickInputBarBinding
 
@@ -61,17 +59,21 @@ class MainActivity : AppCompatActivity() {
         val controller =
             TextSelectionController(target = binding.editText, enableWhen = EnableWhen.NotEmpty)
         controller.attachTo(binding.quickInputBar.quickInputSeek)
-        controller.addListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                //Do nothing. Let TextSelectionController to handle.
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                startInputBarTransition(binding.quickInputBar, true)
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+        controller.addListener(object : OnStatusChangeListener {
+            private var expandSeekBar = false
+            override fun onTouchEnd(v: View) {
                 startInputBarTransition(binding.quickInputBar, false)
+                expandSeekBar = false
+            }
+
+            override fun onLongPress(type: SelectType) {
+                if (!expandSeekBar) startInputBarTransition(binding.quickInputBar, true)
+                expandSeekBar = true
+            }
+
+            override fun onMove(move: Int, type: SelectType, fromTouch: Boolean) {
+                if (!expandSeekBar) startInputBarTransition(binding.quickInputBar, true)
+                expandSeekBar = true
             }
         })
 
