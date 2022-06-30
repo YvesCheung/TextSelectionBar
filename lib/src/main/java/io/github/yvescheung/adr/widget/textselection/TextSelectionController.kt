@@ -9,7 +9,6 @@ import android.text.Editable
 import android.text.Selection
 import android.text.Spannable
 import android.text.TextWatcher
-import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.MotionEvent.*
@@ -136,11 +135,14 @@ open class TextSelectionController @JvmOverloads constructor(
         }
     }
 
-    private val max
+    private val max: Int
         get() = seekBar?.max ?: SEEK_BAR_MAX
 
-    private val min
+    private val min: Int
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) seekBar?.min ?: 0 else 0
+
+    private val progress: Int
+        get() = seekBar?.progress ?: 0
 
     /**
      * 多长时间算长按
@@ -151,17 +153,6 @@ open class TextSelectionController @JvmOverloads constructor(
      * 当进度条移动到端点后，每隔多长时间移动一次光标
      */
     var moveCursorDuration: Long = 100L
-
-    /**
-     * 手势按下去时，进度条的初始进度
-     */
-    private var progressOnPress = (max - min) / 2
-
-    /**
-     * 当前进度条的进度
-     * @see changeProgress
-     */
-    private var currentProgress = progressOnPress
 
     /**
      * 当[SelectType.Selection]时，正在移动哪个光标
@@ -177,11 +168,6 @@ open class TextSelectionController @JvmOverloads constructor(
      * 放大镜效果
      */
     private var magnifier: MagnifierHelper? = null
-
-    /**
-     * 这个类会占用[seekBar]的[SeekBar.OnSeekBarChangeListener]，所以在这里把回调重新分发出去
-     */
-    private val listeners = mutableListOf<SeekBar.OnSeekBarChangeListener>()
 
     /**
      * 选中文本的处理
@@ -217,100 +203,78 @@ open class TextSelectionController @JvmOverloads constructor(
                 }
             }
             MSG_AUTO_CHANGE_PROGRESS -> {
-                if (currentProgress == min || currentProgress == max) {
-                    changeProgress(currentProgress, type)
+                val currentProgress = seekBar?.progress
+                if (currentProgress == min) {
+                    moveCursor(-1, type)
+                } else if (currentProgress == max) {
+                    moveCursor(1, type)
                 }
             }
         }
         true
     }
 
-    private val onSeekbarChangeListener = object : SeekBar.OnSeekBarChangeListener {
-        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-            if (fromUser) {
-                changeProgress(progress, type)
-            } else {
-                listeners.forEach {
-                    it.onProgressChanged(seekBar, progress, fromUser)
-                }
-            }
-        }
-
-        override fun onStartTrackingTouch(seekBar: SeekBar?) {
-            listeners.forEach {
-                it.onStartTrackingTouch(seekBar)
-            }
-        }
-
-        override fun onStopTrackingTouch(seekBar: SeekBar?) {
-            listeners.forEach {
-                it.onStopTrackingTouch(seekBar)
-            }
-        }
-    }
-
     private val onTouchListener = object : View.OnTouchListener {
         private val touchSlop = ViewConfiguration.get(target.context).scaledTouchSlop
         private var downX = 0f
         private var downY = 0f
+        private var lastMoveX = 0f
 
         @SuppressLint("ClickableViewAccessibility")
-        override fun onTouch(v: View?, event: MotionEvent): Boolean {
+        override fun onTouch(v: View, event: MotionEvent): Boolean {
+            v.onTouchEvent(event)
+
+            val x = event.rawX
+            val y = event.rawY
             when (event.actionMasked) {
                 ACTION_DOWN -> {
-                    downX = event.x
-                    downY = event.y
+                    downX = x
+                    downY = y
+                    lastMoveX = downX
                     handler.sendEmptyMessageDelayed(MSG_TOUCH_LONG, longPressDuration)
-
-                    seekBar?.let {
-                        progressOnPress = it.progress
-                        currentProgress = progressOnPress
-                    }
                 }
                 ACTION_MOVE -> {
-                    if (distance(downX, downY, event.x, event.y) > touchSlop * touchSlop) {
+                    if (distance(downX, downY, x, y) > touchSlop * touchSlop) {
                         handler.removeMessages(MSG_TOUCH_LONG)
+                    }
+
+                    val distancePerMove =
+                        (v.width - v.paddingLeft - v.paddingRight).toFloat() / (max - min)
+                    val move = ((x - lastMoveX) / distancePerMove).roundToInt()
+                    if (move != 0) {
+                        moveCursor(move, type)
+                        lastMoveX = x
                     }
                 }
                 ACTION_UP, ACTION_CANCEL -> {
                     handler.removeMessages(MSG_TOUCH_LONG)
                     handler.removeMessages(MSG_AUTO_CHANGE_PROGRESS)
-                }
-            }
 
-            v?.onTouchEvent(event)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        magnifier?.dismiss()
+                    }
 
-            if (event.actionMasked == ACTION_UP ||
-                event.actionMasked == ACTION_CANCEL
-            ) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    magnifier?.dismiss()
+                    if (type == SelectType.Selection && startActionModeAfterSelection) {
+                        //accessibility can start ActionMode
+                        //曲线救国拉起"剪切/复制/全选"的菜单
+                        val start = target.selectionStart
+                        val end = target.selectionEnd
+                        selectionImpl.removeSelection(target)
+                        target.performAccessibilityAction(ACTION_SET_SELECTION,
+                            Bundle().apply {
+                                putInt(ACTION_ARGUMENT_SELECTION_START_INT, start)
+                                putInt(ACTION_ARGUMENT_SELECTION_END_INT, end)
+                            }
+                        )
+                    }
+                    onTouchReset()
                 }
-
-                if (type == SelectType.Selection && startActionModeAfterSelection) {
-                    //accessibility can start ActionMode
-                    //曲线救国拉起"剪切/复制/全选"的菜单
-                    val start = target.selectionStart
-                    val end = target.selectionEnd
-                    selectionImpl.removeSelection(target)
-                    target.performAccessibilityAction(ACTION_SET_SELECTION,
-                        Bundle().apply {
-                            putInt(ACTION_ARGUMENT_SELECTION_START_INT, start)
-                            putInt(ACTION_ARGUMENT_SELECTION_END_INT, end)
-                        }
-                    )
-                }
-                onTouchReset()
             }
             return true
         }
     }
 
-    open fun changeProgress(newProgress: Int, type: SelectType) {
-        val move =
-            if (newProgress == currentProgress && newProgress == min) -1
-            else if (newProgress == currentProgress && newProgress == max) 1
-            else newProgress - currentProgress
+    open fun moveCursor(move: Int, type: SelectType) {
         if (type == SelectType.Move) {
             selectionImpl.setSelection(
                 target = target,
@@ -318,7 +282,7 @@ open class TextSelectionController @JvmOverloads constructor(
             )
         } else { //Selection mode
             if (selectionDirection == SD_UNDEFINE) {
-                selectionDirection = if (newProgress < progressOnPress) SD_START else SD_END
+                selectionDirection = if (move <= 0) SD_START else SD_END
             } else if (target.selectionStart + move > target.selectionEnd) {
                 selectionDirection = SD_END
             } else if (target.selectionEnd + move < target.selectionStart) {
@@ -336,7 +300,6 @@ open class TextSelectionController @JvmOverloads constructor(
                 end = end.limit(0, target.text.length)
             )
         }
-        currentProgress = newProgress
 
         if (enableMagnifier && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             if (magnifier == null) {
@@ -345,33 +308,11 @@ open class TextSelectionController @JvmOverloads constructor(
             magnifier?.show(target.selectionStart)
         }
 
-        if (newProgress == max || newProgress == min) {
+        if (progress == max || progress == min) {
             handler.sendEmptyMessageDelayed(MSG_AUTO_CHANGE_PROGRESS, moveCursorDuration)
         } else {
             handler.removeMessages(MSG_AUTO_CHANGE_PROGRESS)
         }
-
-        listeners.forEach {
-            it.onProgressChanged(seekBar, newProgress, true)
-        }
-        Log.i(
-            "Yves", "onChangeProgress progress = $newProgress, move = $move, " +
-                    "start = ${target.selectionStart}, end = ${target.selectionEnd}"
-        )
-    }
-
-    /**
-     * @see removeListener
-     */
-    fun addListener(listener: SeekBar.OnSeekBarChangeListener) {
-        listeners.add(listener)
-    }
-
-    /**
-     * @see addListener
-     */
-    fun removeListener(listener: SeekBar.OnSeekBarChangeListener) {
-        listeners.remove(listener)
     }
 
     /**
@@ -383,11 +324,8 @@ open class TextSelectionController @JvmOverloads constructor(
 
     @SuppressLint("ClickableViewAccessibility")
     open fun attachTo(seekBar: SeekBar?) {
-        if (seekBar != null) {
-            seekBar.setOnTouchListener(onTouchListener)
-            seekBar.setOnSeekBarChangeListener(onSeekbarChangeListener)
-        }
         this.seekBar = seekBar
+        this.seekBar?.setOnTouchListener(onTouchListener)
         this.seekBar?.progress = (max - min) / 2
         checkSeekBarEnable(target.text)
     }
@@ -410,7 +348,7 @@ open class TextSelectionController @JvmOverloads constructor(
     protected open fun onTouchReset() {
         selectionDirection = SD_UNDEFINE
         type = resetType()
-        seekBar?.progress = progressOnPress
+        seekBar?.progress = (max - min) / 2
     }
 
     @RequiresApi(Build.VERSION_CODES.P)
