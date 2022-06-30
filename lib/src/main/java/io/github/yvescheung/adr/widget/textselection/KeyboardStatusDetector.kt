@@ -61,8 +61,14 @@ interface KeyboardStatusDetector {
     private open class ImplR : ImplM() {
 
         override fun register(decorView: View) {
+            //优先Animation.Callback，OnGlobalLayout兜底
+            var suppressOnGlobalLayout = false
             val callback =
                 object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                    override fun onPrepare(animation: WindowInsetsAnimation) {
+                        suppressOnGlobalLayout = true
+                    }
+
                     override fun onProgress(
                         insets: WindowInsets,
                         animations: MutableList<WindowInsetsAnimation>
@@ -76,11 +82,26 @@ interface KeyboardStatusDetector {
                             listeners.forEach { it.onVisibleChange(newVisible) }
                             isVisible = newVisible
                         }
-
                         return insets
+                    }
+
+                    override fun onEnd(animation: WindowInsetsAnimation) {
+                        suppressOnGlobalLayout = false
                     }
                 }
             decorView.setWindowInsetsAnimationCallback(callback)
+
+            //activity从后台重新恢复，键盘失去焦点并消失，
+            //但WindowInsetsAnimation.Callback没有回调，所以需要GlobalLayout来兜底
+            decorView.viewTreeObserver.addOnGlobalLayoutListener {
+                if (!suppressOnGlobalLayout) {
+                    val newVisible = decorView.rootWindowInsets.isVisible(WindowInsets.Type.ime())
+                    if (isVisible != newVisible) {
+                        listeners.forEach { it.onVisibleChange(newVisible) }
+                        isVisible = newVisible
+                    }
+                }
+            }
 
             isVisible = decorView.rootWindowInsets?.isVisible(WindowInsets.Type.ime()) ?: false
         }
