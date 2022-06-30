@@ -5,8 +5,10 @@ import android.annotation.SuppressLint
 import android.app.Service
 import android.content.res.Resources
 import android.os.*
+import android.text.Editable
 import android.text.Selection
 import android.text.Spannable
+import android.text.TextWatcher
 import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
@@ -21,7 +23,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.*
-import androidx.core.widget.doAfterTextChanged
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController.SelectType
 import kotlin.math.max
 import kotlin.math.min
@@ -190,9 +191,17 @@ open class TextSelectionController @JvmOverloads constructor(
 
     init {
         if (enableWhen != EnableWhen.None) {
-            target.doAfterTextChanged { text ->
-                checkSeekBarEnable(text)
-            }
+            target.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {
+                }
+
+                override fun onTextChanged(s: CharSequence?, st: Int, b: Int, ct: Int) {
+                }
+
+                override fun afterTextChanged(text: Editable?) {
+                    checkSeekBarEnable(text)
+                }
+            })
         }
     }
 
