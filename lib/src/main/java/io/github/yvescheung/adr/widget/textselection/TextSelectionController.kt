@@ -7,6 +7,7 @@ import android.content.res.Resources
 import android.os.*
 import android.text.Selection
 import android.text.Spannable
+import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.MotionEvent.*
@@ -176,8 +177,16 @@ open class TextSelectionController @JvmOverloads constructor(
      */
     private var magnifier: MagnifierHelper? = null
 
-
+    /**
+     * 这个类会占用[seekBar]的[SeekBar.OnSeekBarChangeListener]，所以在这里把回调重新分发出去
+     */
     private val listeners = mutableListOf<SeekBar.OnSeekBarChangeListener>()
+
+    /**
+     * 选中文本的处理
+     * @see overrideSelectionAction
+     */
+    private var selectionImpl: OnSelectionActionCallback = DefaultSelectionActionCallback()
 
     init {
         if (enableWhen != EnableWhen.None) {
@@ -274,7 +283,7 @@ open class TextSelectionController @JvmOverloads constructor(
                     //曲线救国拉起"剪切/复制/全选"的菜单
                     val start = target.selectionStart
                     val end = target.selectionEnd
-                    target.removeSelection()
+                    selectionImpl.removeSelection(target)
                     target.performAccessibilityAction(ACTION_SET_SELECTION,
                         Bundle().apply {
                             putInt(ACTION_ARGUMENT_SELECTION_START_INT, start)
@@ -294,7 +303,10 @@ open class TextSelectionController @JvmOverloads constructor(
             else if (newProgress == currentProgress && newProgress == max) 1
             else newProgress - currentProgress
         if (type == SelectType.Move) {
-            target.setSelection((target.selectionStart + move).limit(0, target.text.length))
+            selectionImpl.setSelection(
+                target = target,
+                selection = (target.selectionStart + move).limit(0, target.text.length)
+            )
         } else { //Selection mode
             if (selectionDirection == SD_UNDEFINE) {
                 selectionDirection = if (newProgress < progressOnPress) SD_START else SD_END
@@ -309,9 +321,10 @@ open class TextSelectionController @JvmOverloads constructor(
             val end =
                 if (selectionDirection == SD_START) target.selectionEnd
                 else target.selectionEnd + move
-            target.setSelection(
-                start.limit(0, target.text.length),
-                end.limit(0, target.text.length)
+            selectionImpl.setSelection(
+                target = target,
+                start = start.limit(0, target.text.length),
+                end = end.limit(0, target.text.length)
             )
         }
         currentProgress = newProgress
@@ -332,20 +345,10 @@ open class TextSelectionController @JvmOverloads constructor(
         listeners.forEach {
             it.onProgressChanged(seekBar, newProgress, true)
         }
-    }
-
-    private fun TextView.setSelection(start: Int, end: Int = start) {
-        val text = this.text
-        if (text is Spannable) {
-            Selection.setSelection(text, start, end)
-        }
-    }
-
-    private fun TextView.removeSelection() {
-        val text = this.text
-        if (text is Spannable) {
-            Selection.removeSelection(text)
-        }
+        Log.i(
+            "Yves", "onChangeProgress progress = $newProgress, move = $move, " +
+                    "start = ${target.selectionStart}, end = ${target.selectionEnd}"
+        )
     }
 
     /**
@@ -360,6 +363,13 @@ open class TextSelectionController @JvmOverloads constructor(
      */
     fun removeListener(listener: SeekBar.OnSeekBarChangeListener) {
         listeners.remove(listener)
+    }
+
+    /**
+     * 自定义实现文本选中的逻辑
+     */
+    fun overrideSelectionAction(callback: OnSelectionActionCallback?) {
+        selectionImpl = callback ?: DefaultSelectionActionCallback()
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -483,6 +493,32 @@ open class TextSelectionController @JvmOverloads constructor(
             magnifier?.dismiss()
             magnifier = null
             isShowing = false
+        }
+    }
+
+    interface OnSelectionActionCallback {
+        fun setSelection(target: TextView, selection: Int) {
+            setSelection(target, selection, selection)
+        }
+
+        fun setSelection(target: TextView, start: Int, end: Int)
+
+        fun removeSelection(target: TextView)
+    }
+
+    open class DefaultSelectionActionCallback : OnSelectionActionCallback {
+        override fun setSelection(target: TextView, start: Int, end: Int) {
+            val text = target.text
+            if (text is Spannable) {
+                Selection.setSelection(text, start, end)
+            }
+        }
+
+        override fun removeSelection(target: TextView) {
+            val text = target.text
+            if (text is Spannable) {
+                Selection.removeSelection(text)
+            }
         }
     }
 
