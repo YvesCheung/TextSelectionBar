@@ -156,6 +156,11 @@ open class TextSelectionController @JvmOverloads constructor(
     var moveCursorDuration: Long = 100L
 
     /**
+     * 如果false，所有手势都无响应
+     */
+    var isEnable = true
+
+    /**
      * 当[SelectType.Selection]时，正在移动哪个光标
      */
     private var selectionDirection = SD_UNDEFINE
@@ -230,6 +235,8 @@ open class TextSelectionController @JvmOverloads constructor(
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouch(v: View, event: MotionEvent): Boolean {
+            if (!isEnable) return true
+
             v.onTouchEvent(event)
 
             val x = event.rawX
