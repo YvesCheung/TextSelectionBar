@@ -113,7 +113,7 @@ interface KeyboardStatusDetector {
         override fun register(decorView: View) {
             decorView.viewTreeObserver.addOnGlobalLayoutListener {
                 val windowInset =
-                    WindowInsetsCompat.toWindowInsetsCompat(decorView.rootWindowInsets)
+                    WindowInsetsCompat.toWindowInsetsCompat(decorView.rootWindowInsets, decorView)
                 val ime = windowInset.getInsets(WindowInsetsCompat.Type.ime())
                 val navigation = windowInset.getInsets(WindowInsetsCompat.Type.navigationBars())
 
