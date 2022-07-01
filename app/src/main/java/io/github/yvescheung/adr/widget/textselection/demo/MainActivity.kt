@@ -11,6 +11,8 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updateLayoutParams
 import androidx.transition.ChangeBounds
 import androidx.transition.TransitionManager
@@ -51,6 +53,9 @@ class MainActivity : AppCompatActivity() {
         binding.quickInputBar.root.visibility = if (detector.isVisible) VISIBLE else GONE
 
         binding.editText.requestFocus()
+        val wic = WindowInsetsControllerCompat(window, binding.editText)
+        wic.show(WindowInsetsCompat.Type.ime())
+
         binding.quickInputBar.quickInputM.onClickInputText("m.", binding.editText)
         binding.quickInputBar.quickInputWww.onClickInputText("www.", binding.editText)
         binding.quickInputBar.quickInputCn.onClickInputText(".cn", binding.editText)
