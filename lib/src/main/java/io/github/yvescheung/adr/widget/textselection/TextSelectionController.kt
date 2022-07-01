@@ -301,7 +301,7 @@ open class TextSelectionController @JvmOverloads constructor(
         if (type == SelectType.Move) {
             selectionImpl.setSelection(
                 target = target,
-                selection = (target.selectionStart + move).limit(0, target.text.length)
+                selection = (target.selectionEnd + move).limit(0, target.text.length)
             )
         } else { //Selection mode
             if (selectionDirection == SD_UNDEFINE) {
