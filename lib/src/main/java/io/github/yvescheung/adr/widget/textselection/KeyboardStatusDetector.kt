@@ -3,10 +3,8 @@ package io.github.yvescheung.adr.widget.textselection
 import android.app.Activity
 import android.graphics.Rect
 import android.os.Build
-import android.view.View
-import android.view.Window
-import android.view.WindowInsets
-import android.view.WindowInsetsAnimation
+import android.view.*
+import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
 import androidx.core.view.WindowInsetsCompat
 import java.util.concurrent.CopyOnWriteArrayList
@@ -60,40 +58,38 @@ interface KeyboardStatusDetector {
     @RequiresApi(Build.VERSION_CODES.R)
     private open class ImplR : ImplM() {
 
-        override fun register(decorView: View) {
-            //优先Animation.Callback，OnGlobalLayout兜底
+        @Keep
+        private inner class Callback(val decorView: View) :
+            WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE),
+            ViewTreeObserver.OnGlobalLayoutListener {
+
             var suppressOnGlobalLayout = false
-            val callback =
-                object : WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
-                    override fun onPrepare(animation: WindowInsetsAnimation) {
-                        suppressOnGlobalLayout = true
-                    }
 
-                    override fun onProgress(
-                        insets: WindowInsets,
-                        animations: MutableList<WindowInsetsAnimation>
-                    ): WindowInsets {
-                        val navigation = insets.getInsets(WindowInsets.Type.navigationBars())
-                        val ime = insets.getInsets(WindowInsets.Type.ime())
-                        listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom) }
+            override fun onPrepare(animation: WindowInsetsAnimation) {
+                suppressOnGlobalLayout = true
+            }
 
-                        val newVisible = insets.isVisible(WindowInsets.Type.ime())
-                        if (isVisible != newVisible) {
-                            listeners.forEach { it.onVisibleChange(newVisible) }
-                            isVisible = newVisible
-                        }
-                        return insets
-                    }
+            override fun onProgress(
+                insets: WindowInsets,
+                animations: MutableList<WindowInsetsAnimation>
+            ): WindowInsets {
+                val navigation = insets.getInsets(WindowInsets.Type.navigationBars())
+                val ime = insets.getInsets(WindowInsets.Type.ime())
+                listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom) }
 
-                    override fun onEnd(animation: WindowInsetsAnimation) {
-                        suppressOnGlobalLayout = false
-                    }
+                val newVisible = insets.isVisible(WindowInsets.Type.ime())
+                if (isVisible != newVisible) {
+                    listeners.forEach { it.onVisibleChange(newVisible) }
+                    isVisible = newVisible
                 }
-            decorView.setWindowInsetsAnimationCallback(callback)
+                return insets
+            }
 
-            //activity从后台重新恢复，键盘失去焦点并消失，
-            //但WindowInsetsAnimation.Callback没有回调，所以需要GlobalLayout来兜底
-            decorView.viewTreeObserver.addOnGlobalLayoutListener {
+            override fun onEnd(animation: WindowInsetsAnimation) {
+                suppressOnGlobalLayout = false
+            }
+
+            override fun onGlobalLayout() {
                 if (!suppressOnGlobalLayout) {
                     val newVisible = decorView.rootWindowInsets.isVisible(WindowInsets.Type.ime())
                     if (isVisible != newVisible) {
@@ -102,6 +98,16 @@ interface KeyboardStatusDetector {
                     }
                 }
             }
+        }
+
+        override fun register(decorView: View) {
+            val callback = Callback(decorView)
+            //优先Animation.Callback，OnGlobalLayout兜底
+            decorView.setWindowInsetsAnimationCallback(callback)
+
+            //activity从后台重新恢复，键盘失去焦点并消失，
+            //但WindowInsetsAnimation.Callback没有回调，所以需要GlobalLayout来兜底
+            decorView.viewTreeObserver.addOnGlobalLayoutListener(callback)
 
             isVisible = decorView.rootWindowInsets?.isVisible(WindowInsets.Type.ime()) ?: false
         }
