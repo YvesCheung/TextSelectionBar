@@ -3,6 +3,7 @@ package io.github.yvescheung.adr.widget.textselection
 import android.app.Activity
 import android.graphics.Rect
 import android.os.Build
+import android.util.Log
 import android.view.*
 import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
@@ -77,7 +78,7 @@ interface KeyboardStatusDetector {
                 val ime = insets.getInsets(WindowInsets.Type.ime())
                 listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom) }
 
-                val newVisible = insets.isVisible(WindowInsets.Type.ime())
+                val newVisible = ime.bottom > navigation.bottom
                 if (isVisible != newVisible) {
                     listeners.forEach { it.onVisibleChange(newVisible) }
                     isVisible = newVisible

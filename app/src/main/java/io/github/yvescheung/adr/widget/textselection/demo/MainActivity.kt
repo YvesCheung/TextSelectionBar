@@ -2,6 +2,7 @@ package io.github.yvescheung.adr.widget.textselection.demo
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
@@ -21,6 +22,7 @@ import io.github.yvescheung.adr.widget.textselection.TextSelectionController
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController.*
 import io.github.yvescheung.adr.widget.textselection.demo.databinding.ActivityMainBinding
 import io.github.yvescheung.adr.widget.textselection.demo.databinding.LayoutQuickInputBarBinding
+import kotlin.math.max
 
 /**
  * @author YvesCheung
@@ -38,6 +40,8 @@ class MainActivity : AppCompatActivity() {
         val detector = KeyboardStatusDetector.register(this)
         detector.addListener(object : KeyboardStatusDetector.OnChangeListener {
 
+            private var maxHeight = 0
+
             override fun onVisibleChange(visible: Boolean) {
                 binding.quickInputBar.root.visibility = if (visible) VISIBLE else GONE
             }
@@ -47,6 +51,11 @@ class MainActivity : AppCompatActivity() {
                 if (lp.bottomMargin != height) {
                     lp.bottomMargin = height
                     binding.quickInputBar.root.layoutParams = lp
+                }
+
+                maxHeight = max(maxHeight, height)
+                if (maxHeight > 0 && height >= 0) { //随着键盘落下，降低透明度
+                    binding.quickInputBar.root.alpha = height.toFloat() / maxHeight
                 }
             }
         })
