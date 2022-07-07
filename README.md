@@ -37,7 +37,6 @@ TextSelectionController(editText).attachTo(seekBar)
 ### 更多可选配置
 
 ```kotlin
-seekBar.max = 100 //进度条本身属性，max值越大，拖动进度条时光标移动越快
 val controller = TextSelectionController(
     target = editText, 
     mode = Mode.ShortPressMoveAndLongPressSelection, //短按移动，长按选中
@@ -45,6 +44,7 @@ val controller = TextSelectionController(
     startActionModeAfterSelection = true, //选中后是否显示“剪切/复制”菜单
     enableMagnifier = true //是否开启放大镜，Android9+支持
 )
+controller.moveSensitivity = 100f //值越大，拖动进度条时光标移动越快
 controller.longPressDuration = 500L //手势多长时间算长按
 controller.moveCursorDuration = 100L //当进度条拖到尽头后，每隔多长时间移动一次光标
 controller.attachTo(seekBar)
