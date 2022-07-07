@@ -156,6 +156,14 @@ open class TextSelectionController @JvmOverloads constructor(
     var moveCursorDuration: Long = 100L
 
     /**
+     * 整个进度条宽度可以移动光标多少位置，值越大，光标移动越敏感
+     */
+    var moveSensitivity = 100f
+        set(value) {
+            field = if (value <= 0f) 1f else value
+        }
+
+    /**
      * 如果false，所有手势都无响应
      */
     var isEnable = true
@@ -232,6 +240,7 @@ open class TextSelectionController @JvmOverloads constructor(
         private var downX = 0f
         private var downY = 0f
         private var lastMoveX = 0f
+        private var distancePerMove = 0f
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouch(v: View, event: MotionEvent): Boolean {
@@ -243,6 +252,8 @@ open class TextSelectionController @JvmOverloads constructor(
             val y = event.rawY
             when (event.actionMasked) {
                 ACTION_DOWN -> {
+                    distancePerMove =
+                        max(1f, target.resources.displayMetrics.widthPixels / moveSensitivity)
                     downX = x
                     downY = y
                     lastMoveX = downX
@@ -255,8 +266,7 @@ open class TextSelectionController @JvmOverloads constructor(
                         handler.removeMessages(MSG_TOUCH_LONG)
                     }
 
-                    val distancePerMove =
-                        (v.width - v.paddingLeft - v.paddingRight).toFloat() / (max - min)
+
                     val move = ((x - lastMoveX) / distancePerMove).roundToInt()
                     if (move != 0) {
                         moveCursor(move, type, true)
@@ -365,6 +375,7 @@ open class TextSelectionController @JvmOverloads constructor(
     open fun attachTo(seekBar: SeekBar?) {
         this.seekBar = seekBar
         this.seekBar?.setOnTouchListener(onTouchListener)
+        this.seekBar?.max = SEEK_BAR_MAX
         this.seekBar?.progress = (max - min) / 2
         checkSeekBarEnable(target.text)
     }
@@ -536,7 +547,7 @@ open class TextSelectionController @JvmOverloads constructor(
 
     companion object {
 
-        const val SEEK_BAR_MAX = 100 //值越大，进度条的移动越敏感，每动一下手指光标移动的距离就越多
+        const val SEEK_BAR_MAX = 10000 //值越大，进度条的滑动越顺畅
 
         /**
          * 判断是否长按
