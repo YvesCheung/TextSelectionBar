@@ -21,9 +21,11 @@ import android.widget.Magnifier
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.annotation.RequiresApi
+import androidx.annotation.Size
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.*
 import io.github.yvescheung.adr.widget.textselection.TextSelectionController.SelectType
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -236,6 +238,8 @@ open class TextSelectionController @JvmOverloads constructor(
     }
 
     private val viewListener = object : View.OnTouchListener, View.OnLayoutChangeListener {
+        @Size(2)
+        private val location = IntArray(2)
         private val touchSlop = ViewConfiguration.get(target.context).scaledTouchSlop
         private var downX = 0f
         private var downY = 0f
@@ -261,10 +265,18 @@ open class TextSelectionController @JvmOverloads constructor(
                         max(1f, target.resources.displayMetrics.widthPixels / moveSensitivity)
                     downX = x
                     downY = y
-                    lastMoveX = downX
+                    v.getLocationOnScreen(location)
+                    lastMoveX = location[0] + v.width * 0.5f
+
                     handler.sendEmptyMessageDelayed(MSG_TOUCH_LONG, longPressDuration)
 
                     listeners.forEach { it.onTouchStart(v) }
+
+                    val move = ((x - lastMoveX) / distancePerMove).roundToInt()
+                    if (move != 0 && abs(x - lastMoveX) > touchSlop) {
+                        moveCursor(move, type, true)
+                        lastMoveX = x
+                    }
                 }
                 ACTION_MOVE -> {
                     if (distance(downX, downY, x, y) > touchSlop * touchSlop) {
@@ -320,13 +332,15 @@ open class TextSelectionController @JvmOverloads constructor(
             oldBottom: Int
         ) {
             if (touching) {
-                val newProgress = (max - min) * 0.5f +
-                        (x - downX) / (right - left - v.paddingLeft - v.paddingRight) * (max - min)
+                v.getLocationOnScreen(location)
+                val viewX = location[0]
+                val newProgress =
+                    (x - viewX) / (right - left - v.paddingLeft - v.paddingRight) * (max - min)
                 seekBar?.progress = newProgress.roundToInt()
             }
         }
     }
-    
+
     open fun moveCursor(move: Int, type: SelectType) {
         moveCursor(move, type, false)
     }
