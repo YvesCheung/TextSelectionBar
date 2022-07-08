@@ -235,12 +235,15 @@ open class TextSelectionController @JvmOverloads constructor(
         true
     }
 
-    private val onTouchListener = object : View.OnTouchListener {
+    private val viewListener = object : View.OnTouchListener, View.OnLayoutChangeListener {
         private val touchSlop = ViewConfiguration.get(target.context).scaledTouchSlop
         private var downX = 0f
         private var downY = 0f
         private var lastMoveX = 0f
         private var distancePerMove = 0f
+        private var x = 0f
+        private var y = 0f
+        private var touching = false
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouch(v: View, event: MotionEvent): Boolean {
@@ -248,10 +251,12 @@ open class TextSelectionController @JvmOverloads constructor(
 
             v.onTouchEvent(event)
 
-            val x = event.rawX
-            val y = event.rawY
+            x = event.rawX
+            y = event.rawY
             when (event.actionMasked) {
                 ACTION_DOWN -> {
+                    touching = true
+
                     distancePerMove =
                         max(1f, target.resources.displayMetrics.widthPixels / moveSensitivity)
                     downX = x
@@ -265,7 +270,6 @@ open class TextSelectionController @JvmOverloads constructor(
                     if (distance(downX, downY, x, y) > touchSlop * touchSlop) {
                         handler.removeMessages(MSG_TOUCH_LONG)
                     }
-
 
                     val move = ((x - lastMoveX) / distancePerMove).roundToInt()
                     if (move != 0) {
@@ -297,12 +301,32 @@ open class TextSelectionController @JvmOverloads constructor(
                     onTouchReset()
 
                     listeners.forEach { it.onTouchEnd(v) }
+
+                    touching = false
                 }
             }
             return true
         }
-    }
 
+        override fun onLayoutChange(
+            v: View,
+            left: Int,
+            top: Int,
+            right: Int,
+            bottom: Int,
+            oldLeft: Int,
+            oldTop: Int,
+            oldRight: Int,
+            oldBottom: Int
+        ) {
+            if (touching) {
+                val newProgress = (max - min) * 0.5f +
+                        (x - downX) / (right - left - v.paddingLeft - v.paddingRight) * (max - min)
+                seekBar?.progress = newProgress.roundToInt()
+            }
+        }
+    }
+    
     open fun moveCursor(move: Int, type: SelectType) {
         moveCursor(move, type, false)
     }
@@ -374,7 +398,8 @@ open class TextSelectionController @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     open fun attachTo(seekBar: SeekBar?) {
         this.seekBar = seekBar
-        this.seekBar?.setOnTouchListener(onTouchListener)
+        this.seekBar?.setOnTouchListener(viewListener)
+        this.seekBar?.addOnLayoutChangeListener(viewListener)
         this.seekBar?.max = SEEK_BAR_MAX
         this.seekBar?.progress = (max - min) / 2
         checkSeekBarEnable(target.text)
