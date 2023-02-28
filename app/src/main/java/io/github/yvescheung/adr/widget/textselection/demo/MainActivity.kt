@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
                 binding.quickInputBar.root.visibility = if (visible) VISIBLE else GONE
             }
 
-            override fun onHeightChange(height: Int) {
+            override fun onHeightChange(height: Int, pendingVisible: Boolean) {
                 val lp = binding.quickInputBar.root.layoutParams as ViewGroup.MarginLayoutParams
                 if (lp.bottomMargin != height) {
                     lp.bottomMargin = height

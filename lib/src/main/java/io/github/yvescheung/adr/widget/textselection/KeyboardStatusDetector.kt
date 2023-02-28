@@ -3,7 +3,6 @@ package io.github.yvescheung.adr.widget.textselection
 import android.app.Activity
 import android.graphics.Rect
 import android.os.Build
-import android.util.Log
 import android.view.*
 import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
@@ -19,7 +18,7 @@ interface KeyboardStatusDetector {
 
     interface OnChangeListener {
 
-        fun onHeightChange(height: Int) {}
+        fun onHeightChange(height: Int, pendingVisible: Boolean) {}
 
         fun onVisibleChange(visible: Boolean) {}
     }
@@ -64,10 +63,13 @@ interface KeyboardStatusDetector {
             WindowInsetsAnimation.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE),
             ViewTreeObserver.OnGlobalLayoutListener {
 
-            var suppressOnGlobalLayout = false
+            private var suppressOnGlobalLayout = false
+            private var pendingVisible = false
 
             override fun onPrepare(animation: WindowInsetsAnimation) {
                 suppressOnGlobalLayout = true
+
+                pendingVisible = !decorView.rootWindowInsets.isVisible(WindowInsets.Type.ime())
             }
 
             override fun onProgress(
@@ -76,7 +78,7 @@ interface KeyboardStatusDetector {
             ): WindowInsets {
                 val navigation = insets.getInsets(WindowInsets.Type.navigationBars())
                 val ime = insets.getInsets(WindowInsets.Type.ime())
-                listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom) }
+                listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom, pendingVisible) }
 
                 val newVisible = ime.bottom > navigation.bottom
                 if (isVisible != newVisible) {
@@ -88,11 +90,13 @@ interface KeyboardStatusDetector {
 
             override fun onEnd(animation: WindowInsetsAnimation) {
                 suppressOnGlobalLayout = false
+                onGlobalLayout()
             }
 
             override fun onGlobalLayout() {
                 if (!suppressOnGlobalLayout) {
-                    val newVisible = decorView.rootWindowInsets.isVisible(WindowInsets.Type.ime())
+                    val newVisible = decorView.rootWindowInsets
+                        ?.isVisible(WindowInsets.Type.ime()) ?: false
                     if (isVisible != newVisible) {
                         listeners.forEach { it.onVisibleChange(newVisible) }
                         isVisible = newVisible
@@ -127,7 +131,7 @@ interface KeyboardStatusDetector {
                 val newVisible = windowInset.isVisible(WindowInsetsCompat.Type.ime())
                 if (isVisible != newVisible) {
                     listeners.forEach { it.onVisibleChange(newVisible) }
-                    listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom) }
+                    listeners.forEach { it.onHeightChange(ime.bottom - navigation.bottom, newVisible) }
                     isVisible = newVisible
                 }
             }
@@ -176,7 +180,7 @@ interface KeyboardStatusDetector {
                     }
 
                     if (isVisible) {
-                        listeners.forEach { it.onHeightChange(windowHeight - height) }
+                        listeners.forEach { it.onHeightChange(windowHeight - height, isVisible) }
                     }
                     visibleHeight = height
                 }
